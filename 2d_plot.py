@@ -3,7 +3,7 @@ from sys import exit
 from mpi4py import MPI
 import numpy as np
 import matplotlib as mpl
-mpl.use('Agg')
+#mpl.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy.linalg as la
@@ -182,7 +182,7 @@ def create_mag_plot_stream(g,x,y, Set, comm):
         axarr[1].set_ylim(np.min(Y), np.max(Y))
         plt.show()
 
-def create_mag_plot_contour(g,x,y, Set, comm):
+def create_mag_plot_contour(g,x,y, Set, name, comm):
     E = g.E
     rank     = comm.Get_rank()
     nprocs   = comm.Get_size()
@@ -202,32 +202,75 @@ def create_mag_plot_contour(g,x,y, Set, comm):
     X, Y, U, V, W, Z_ratio = calc_mag_distr(g,E, x_part, y_part,
             dim_num, dim_num, rank)
     if rank == 0:
-        global R
-        axarr[0,1].plot(R[:,0],R[:,1], '.')
-        axarr[0,1].plot(-R[-1,0], R[-1,1], 'r.')
+        U = np.real(U)
+        V = np.real(V)
+        W = np.real(W)
+
+        R = np.sqrt(U*U + V*V)
+        phi = np.arctan2(V,U)
+       
         lvls = np.linspace(np.min(U), np.max(U), 20)
         cont = axarr[0,1].contourf(X,Y,U, cmap=cm.coolwarm, levels=lvls)
         f.colorbar(cont, ax=axarr[0,1])
 
-        axarr[1,0].plot(R[:,0],R[:,1], '.')
-        axarr[1,0].plot(-R[-1,0], R[-1,1], 'r.')
         lvls = np.linspace(np.min(V), np.max(V), 20)
         cont = axarr[1,0].contourf(X,Y,V, cmap=cm.coolwarm, levels=lvls)
         f.colorbar(cont, ax=axarr[1,0])
         
-        axarr[1,1].plot(R[:,0],R[:,1], '.')
-        axarr[1,1].plot(-R[-1,0], R[-1,1], 'r.')
         lvls = np.linspace(np.min(W), np.max(W), 20)
         cont = axarr[1,1].contourf(X,Y,W, cmap=cm.coolwarm, levels=lvls)
         f.colorbar(cont, ax=axarr[1,1])
         
-        # axarr[0,0].set_title("Set: %d  E = %2.2f"%(Set+1,np.real(E)))
-        # axarr[0,1].set_title("X-component")
-        # axarr[1,0].set_title("Y-component")
-        # axarr[1,1].set_title("Z-component")
-        plt.show()
+        axarr[0,0].set_title("Set: %d  E = %2.2f"%(Set+1,np.real(E)))
+        axarr[0,1].set_title("X-component")
+        axarr[1,0].set_title("Y-component")
+        axarr[1,1].set_title("Z-component")
+
+        plt.tight_layout()
+        plt.savefig(name)
+        plt.clf()
+        #plt.show()
 
 
+def create_mag_plot_nice(g,x,y, Set, name, comm):
+    E = g.E
+    rank     = comm.Get_rank()
+    nprocs   = comm.Get_size()
+    dim_num  = x.shape[0]
+
+
+    #create k-plot
+    if rank == 0:
+        f, axarr = plt.subplots(2,1, figsize=(4,6))
+        # plot_k(g, axarr[0], f)
+        # a,b = axarr[0].get_ylim()
+        # axarr[0].plot([E,E],[a,b], "k:")#,label="E")
+        # axarr[0].legend()
+
+    #distrib grid
+    x_part, y_part = SplitSpread_grid(x,y, comm)
+    X, Y, U, V, W, Z_ratio = calc_mag_distr(g,E, x_part, y_part,
+            dim_num, dim_num, rank)
+    if rank == 0:
+        U = np.real(U)
+        V = np.real(V)
+        W = np.real(W)
+
+        R = np.sqrt(U*U + V*V)
+       
+        strm = axarr[0].streamplot(X, Y, U, V, linewidth=2)
+
+        lvls = np.linspace(np.min(W), np.max(W), 20)
+        cont = axarr[1].contourf(X,Y,W, cmap=cm.viridis, levels=lvls)
+        f.colorbar(cont, ax=axarr[1])
+        
+        axarr[0].set_title("X-Y-stream")
+        axarr[1].set_title("Z-component")
+
+        #plt.tight_layout()
+        plt.savefig(name)
+        plt.clf()
+        #plt.show()
 
 def circumf(a,b, end):
     U = lambda t:  np.sqrt( a**2 * ( np.sin(t)**2 + b**2/(a**2) * np.cos(t)**2))
@@ -304,28 +347,67 @@ def calc_diff_den(E,a,b,N, para, prefix):
         den_diff = den_full - den_ell
         np.savez(prefix + ".npz", den_full, den_ell, den_diff, R, X, Y)
 
+def den_scan(comm, rank, nprocs):
+    m     = 10.0 * np.ones(5)
+    alpha = np.array([1E-3, 1.0,  1E-3, 2.0,  1E-3 ])
+    beta  = np.array([1E-3, 1E-3, 1.0,  1E-3, 1.0])
+    B0    = np.array([1.0,  0.0,  0.0,  1.0,  2.0])
+
+    para = Param(m[3], alpha[3], beta[3], B0[3])
+    N = 81 
+
+
+    E = np.linspace(-1.5, 1.5, 300) 
+    lamb = 2*np.pi /40.0
+    a = 0.64
+    b = 4.0/5.0 * a 
+
+    for i in range(E.shape[0]):
+        prefix = "81_E=%1.5f"%(E[i])
+        if rank == 0:
+            print("%d  %1.5f"%(i, E[i]))
+        calc_diff_den(E[i],a, b, N, para, prefix)
+
+def latex(name, mag, Set):
+    new_name = "img" + name[5:]
+    print(r"\begin{figure}")
+    print(r"\centering")
+    print(r"\includegraphics[width=0.7\textwidth]{" + \
+            new_name + "}")
+    print(r"\caption{Set %d "%(Set+1) + " magnetization " +\
+            str(mag) + " Bnone}")
+    print("\end{figure}")
+
+def mag_plot(comm,  rank, nprocs, Set, mag, E):
+    m     = 10.0 * np.ones(5)
+    alpha = np.array([1E-8, 1.0,  0.0,    2.0, 0.0 ])
+    beta  = np.array([1E-8, 0.0,  1.0,    0.0, 1.0])
+    B0    = np.array([1.0,  0.0,  0.0,    1.0, 2.0])
+
+    N      = 1
+    R      = np.array([[0.0, 0.0]])
+    V      = 0.23 * np.ones(N)
+    B      = np.zeros((N,3))
+    #B[:,2] = V[0]
+    x      = y = np.linspace(-1.2,1.2,100)
+
+    name = "plots/magplot_Set_%d_mag"%(Set+1) +\
+            str(mag) + \
+            "_Bnone.pdf"
+    # if rank == 0:
+        # latex(name, mag, Set)
+    I = Impurity.Imp(R, V,B)
+    g = GreenF.GF(m[Set], alpha[Set], beta[Set], B0[Set], I, E, mag,
+              nprocs, rank, comm)
+    create_mag_plot_nice(g, x, y, Set, name, comm)
 
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
 nprocs = comm.Get_size()
 
-m     = 10.0 * np.ones(5)
-alpha = np.array([1E-3, 1.0,  1E-3, 2.0,  1E-3 ])
-beta  = np.array([1E-3, 1E-3, 1.0,  1E-3, 1.0])
-B0    = np.array([1.0,  0.0,  0.0,  1.0,  2.0])
 
-para = Param(m[3], alpha[3], beta[3], B0[3])
-N = 81 
-
-
-E = np.linspace(-1.5, 1.5, 300) 
-lamb = 2*np.pi /40.0
-a = 0.64
-b = 4.0/5.0 * a 
-
-for i in range(E.shape[0]):
-    prefix = "81_E=%1.5f"%(E[i])
+for i in range(5):
+    E = 2.5 
+    mag_plot(comm, rank, nprocs, i, False, E)
     if rank == 0:
-        print("%d  %1.5f"%(i, E[i]))
-    calc_diff_den(E[i],a, b, N, para, prefix)
-
+        print(i)

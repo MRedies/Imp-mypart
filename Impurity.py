@@ -58,12 +58,13 @@ class Imp:
             self.T[i:i+2,i:i+2] = self.inv_t(n, m, mag)
 
     def inv_t(self,n,m, mag):
-        if(mag  == False):
-            t = 1j * self.sigma_0
+        if(mag   == False):
+            invt  = 1j * self.sigma_0
+
         else:
             b_norm  = 1.0 / la.norm(self.B[n,:])
-            t       = 1j * b_norm * self.B[n,0] * self.sigma_x
-            t      += 1j * b_norm * self.B[n,1] * self.sigma_y
-            t      += 1j * b_norm * self.B[n,2] * self.sigma_z
+            invt    = 1j * b_norm * self.B[n,0] * self.sigma_x
+            invt   += 1j * b_norm * self.B[n,1] * self.sigma_y
+            invt   += 1j * b_norm * self.B[n,2] * self.sigma_z
         #print("m = %f + i %f"%(np.real(m), np.imag(m) ))
-        return 2.0*t/(m)
+        return invt/(m)

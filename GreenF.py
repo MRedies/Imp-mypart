@@ -9,9 +9,10 @@ from mpi4py import MPI
 def my_Hankel(n, k, abs_R):
     z = k*k
     if(np.imag(z) > 0):
-        return  sf.hankel1(n, k * abs_R)
+        ret =  sf.hankel1(n, k * abs_R)
     else:
-        return -sf.hankel2(n, k * abs_R)
+        ret = -sf.hankel2(n, k * abs_R)
+    return ret
 
 class GF:
     def __init__(self, m, alpha, beta, B0, Impur, E, mag,
