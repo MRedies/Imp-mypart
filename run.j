@@ -17,7 +17,7 @@
  
 ### Request the number of compute slots you want to use
 #BSUB -n 32 
-#BSUB -N
+###BSUB -N
  
 ### Use esub for Open MPI
 #BSUB -a openmpi
@@ -26,7 +26,7 @@
 # module switch openmpi openmpi/1.7.4
  
 ### Change to the work directory
-cd /home/mr071525/imp
+cd /home/mr071525/Imp-mypart
 
  
 ### Execute your application

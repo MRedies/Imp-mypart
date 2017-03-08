@@ -67,4 +67,4 @@ class Imp:
             invt   += 1j * b_norm * self.B[n,1] * self.sigma_y
             invt   += 1j * b_norm * self.B[n,2] * self.sigma_z
         #print("m = %f + i %f"%(np.real(m), np.imag(m) ))
-        return invt/(m)
+        return invt/( m)

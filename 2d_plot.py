@@ -3,7 +3,7 @@ from sys import exit
 from mpi4py import MPI
 import numpy as np
 import matplotlib as mpl
-#mpl.use('Agg')
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy.linalg as la
@@ -308,66 +308,6 @@ def ellipse(a,b,n):
 def foc(a,b):
     return np.sqrt(a**2 - b**2)
 
-def calc_diff_den(E,a,b,N, para, prefix):
-    global comm, rank, nprocs
-    R = np.zeros((N, 2))
-    R[:-1,0],R[:-1,1] = ellipse(a,b,N-1)
-    R[-1,:] = np.array([-foc(a,b),0.0])
-
-
-    # init values
-    V = 0.23 * np.ones(N)
-    B      = np.zeros((N,3))
-    B[:,0] = 1e-6
-
-    dim_num = 300
-    x = np.linspace(-1.20 * a, 1.2 * a, dim_num)
-    #y = np.linspace(-1.20 * b, 1.2 * b, dim_num) 
-    y = np.array([0.0])
-
-    x_dim = dim_num
-    y_dim = 1 #dim_num
-
-    I = Impurity.Imp(R,V,B)
-    g = GreenF.GF(para.m, para.alpha, para.beta, para.B0, I, E, True,
-                  nprocs, rank, comm)
-    
-    #distrib grid
-    x_part, y_part = SplitSpread_grid(x,y, comm)
-    X, Y, den_full = calc_den_distr(g,E, x_part, y_part,
-            x_dim, y_dim, rank)
-    
-    I = Impurity.Imp(R[:-1,:], V[:-1],B[:-1,:])
-    g = GreenF.GF(para.m, para.alpha, para.beta, para.B0, I, E, True,
-                  nprocs, rank, comm)
-    _, _, den_ell = calc_den_distr(g,E, x_part, y_part,
-            x_dim, y_dim, rank)
-
-    if rank == 0:
-        den_diff = den_full - den_ell
-        np.savez(prefix + ".npz", den_full, den_ell, den_diff, R, X, Y)
-
-def den_scan(comm, rank, nprocs):
-    m     = 10.0 * np.ones(5)
-    alpha = np.array([1E-3, 1.0,  1E-3, 2.0,  1E-3 ])
-    beta  = np.array([1E-3, 1E-3, 1.0,  1E-3, 1.0])
-    B0    = np.array([1.0,  0.0,  0.0,  1.0,  2.0])
-
-    para = Param(m[3], alpha[3], beta[3], B0[3])
-    N = 81 
-
-
-    E = np.linspace(-1.5, 1.5, 300) 
-    lamb = 2*np.pi /40.0
-    a = 0.64
-    b = 4.0/5.0 * a 
-
-    for i in range(E.shape[0]):
-        prefix = "81_E=%1.5f"%(E[i])
-        if rank == 0:
-            print("%d  %1.5f"%(i, E[i]))
-        calc_diff_den(E[i],a, b, N, para, prefix)
-
 def latex(name, mag, Set):
     new_name = "img" + name[5:]
     print(r"\begin{figure}")
@@ -401,13 +341,70 @@ def mag_plot(comm,  rank, nprocs, Set, mag, E):
               nprocs, rank, comm)
     create_mag_plot_nice(g, x, y, Set, name, comm)
 
+
+def calc_diff_den(E,a,b,N, para, mag, prefix):
+    global comm, rank, nprocs
+    R = np.zeros((N, 2))
+    R[:-1,0],R[:-1,1] = ellipse(a,b,N-1)
+    R[-1,:] = np.array([-foc(a,b),0.0])
+
+
+    # init values
+    V = 0.23 * np.ones(N)
+    B      = np.zeros((N,3))
+    B[:,0] = 1e-6
+
+    dim_num = 500
+    x = np.linspace(-1.20 * a, 1.2 * a, dim_num)
+    #y = np.linspace(-1.20 * b, 1.2 * b, dim_num) 
+    y = np.array([0.0])
+
+    x_dim = y_dim = dim_num
+    y_dim = 1 #dim_num
+
+    I = Impurity.Imp(R,V,B)
+    g = GreenF.GF(para.m, para.alpha, para.beta, para.B0, I, E, mag,
+                  nprocs, rank, comm)
+    
+    #distrib grid
+    x_part, y_part = SplitSpread_grid(x,y, comm)
+    X, Y, den_full = calc_den_distr(g,E, x_part, y_part,
+            x_dim, y_dim, rank)
+    
+    I = Impurity.Imp(R[:-1,:], V[:-1],B[:-1,:])
+    g = GreenF.GF(para.m, para.alpha, para.beta, para.B0, I, E, mag,
+                  nprocs, rank, comm)
+    _, _, den_ell = calc_den_distr(g,E, x_part, y_part,
+            x_dim, y_dim, rank)
+
+    if rank == 0:
+        den_diff = den_full - den_ell
+        np.savez(prefix + ".npz", den_full, den_ell, den_diff, R, X, Y)
+
+def den_scan(comm, rank, nprocs):
+    m     = 10.0 * np.ones(5)
+    alpha = np.array([1E-3, 1.0,  1E-3, 2.0,  1E-3 ])
+    beta  = np.array([1E-3, 1E-3, 1.0,  1E-3, 1.0])
+    B0    = np.array([1.0,  0.0,  0.0,  1.0,  2.0])
+
+    para = Param(m[3], alpha[3], beta[3], B0[3])
+    N = 67 
+
+
+    E    = np.linspace(0.0, 3.0, 300)
+    lamb = 2*np.pi /40.0
+    a    = 0.713
+    b    = 0.4407
+    mag  = False
+
+    for i in range(E.shape[0]):
+        prefix = "Mano_E=%1.5f"%(E[i])
+        if rank == 0:
+            print("%d  %1.5f"%(i, E[i]))
+        calc_diff_den(E[i],a, b, N, para, mag, prefix)
+
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
 nprocs = comm.Get_size()
 
-
-for i in range(5):
-    E = 2.5 
-    mag_plot(comm, rank, nprocs, i, False, E)
-    if rank == 0:
-        print(i)
+den_scan(comm, rank, nprocs)
