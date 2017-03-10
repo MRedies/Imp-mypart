@@ -354,17 +354,18 @@ def calc_diff_den(E,a,b,N, para, mag, prefix):
     B      = np.zeros((N,3))
     B[:,0] = 1e-6
 
-    dim_num = 500
-    x = np.linspace(-1.20 * a, 1.2 * a, dim_num)
-    #y = np.linspace(-1.20 * b, 1.2 * b, dim_num) 
-    y = np.array([0.0])
-
+    dim_num = 300
     x_dim = y_dim = dim_num
-    y_dim = 1 #dim_num
+    #y_dim = 1 #dim_num
+    x = np.linspace(-1.20 * a, 1.2 * a, dim_num)
+    y = np.linspace(-1.20 * b, 1.2 * b, dim_num) 
+    #y = np.array([0.0])
+
 
     I = Impurity.Imp(R,V,B)
     g = GreenF.GF(para.m, para.alpha, para.beta, para.B0, I, E, mag,
                   nprocs, rank, comm)
+
     
     #distrib grid
     x_part, y_part = SplitSpread_grid(x,y, comm)
@@ -378,30 +379,33 @@ def calc_diff_den(E,a,b,N, para, mag, prefix):
             x_dim, y_dim, rank)
 
     if rank == 0:
+        k = np.zeros(2)
+        k[0], k[1] = g.find_ks(E + 1E-3 * 1j)
         den_diff = den_full - den_ell
-        np.savez(prefix + ".npz", den_full, den_ell, den_diff, R, X, Y)
+        np.savez(prefix + ".npz", den_full, den_ell, den_diff, R, X, Y, k)
 
 def den_scan(comm, rank, nprocs):
-    m     = 10.0 * np.ones(5)
-    alpha = np.array([1E-3, 1.0,  1E-3, 2.0,  1E-3 ])
-    beta  = np.array([1E-3, 1E-3, 1.0,  1E-3, 1.0])
-    B0    = np.array([1.0,  0.0,  0.0,  1.0,  2.0])
+    #atomic units
+    m     = 0.12535 # m_e
+    alpha = 0.04939 # Hartree a0
+    beta  = alpha
+    B0    = 0.0
 
-    para = Param(m[3], alpha[3], beta[3], B0[3])
-    N = 67 
+    N    = 37
 
 
-    E    = np.linspace(0.0, 3.0, 300)
-    lamb = 2*np.pi /40.0
-    a    = 0.713
-    b    = 0.4407
+    E    = 0.0
+    a    = 259.594 #a0
+    b    = 160.488 #a0
+
     mag  = False
 
-    for i in range(E.shape[0]):
-        prefix = "Mano_E=%1.5f"%(E[i])
+    for i in [0]:#range(B0.shape[0]):
+        para = Param(m, alpha, beta, B0)
+        prefix = "manuel_sugg"#%(B0)
         if rank == 0:
-            print("%d  %1.5f"%(i, E[i]))
-        calc_diff_den(E[i],a, b, N, para, mag, prefix)
+            print("%d  %1.5f"%(i, B0))
+        calc_diff_den(E,a, b, N, para, mag, prefix)
 
 comm   = MPI.COMM_WORLD
 rank   = comm.Get_rank()
